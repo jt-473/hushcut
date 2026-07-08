@@ -160,8 +160,8 @@ function VideoBackground() {
 function Nav() {
   return (
     <nav
-      className="flex items-center justify-between w-full"
-      style={{ padding: "16px 120px" }}
+      className="flex items-center justify-between w-full gap-3"
+      style={{ padding: "16px clamp(16px, 6vw, 120px)" }}
     >
       <span
         style={{ fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 24, letterSpacing: "-1.44px", color: "#000" }}
@@ -338,9 +338,9 @@ function SearchBox() {
 
       {/* Main frosted box */}
       <div
-        className="w-full flex flex-col justify-between"
+        className="w-full flex flex-col justify-between gap-3"
         style={{
-          height: 200,
+          minHeight: 200,
           background: "rgba(0,0,0,0.24)",
           borderRadius: 18,
           backdropFilter: "blur(16px)",
@@ -350,7 +350,7 @@ function SearchBox() {
       >
         {/* Top row */}
         <div
-          className="flex items-center justify-between"
+          className="flex items-center justify-between flex-wrap gap-x-3 gap-y-1.5"
           style={{ fontFamily: FONT.schibsted, fontWeight: 500, fontSize: 12, color: "#fff" }}
         >
           <div className="flex items-center gap-2">
@@ -421,8 +421,8 @@ function SearchBox() {
         </div>
 
         {/* Bottom row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 rounded-md hover:opacity-90 transition-opacity" style={actionBtn}>
               <Upload size={14} />
               Upload
@@ -509,27 +509,29 @@ function SearchBox() {
 /* ─── Page ─── */
 export default function Home() {
   return (
-    <div className="relative w-full min-h-screen overflow-hidden bg-white">
-      <VideoBackground />
+    <div className="relative w-full min-h-screen bg-white">
+      <div className="absolute inset-0 overflow-hidden z-0">
+        <VideoBackground />
+      </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <Nav />
 
         {/* Hero content */}
-        <main className="flex-1 flex flex-col items-center justify-center" style={{ paddingTop: 60 }}>
-          <div className="flex flex-col items-center -mt-[50px]" style={{ gap: 44, padding: "0 120px" }}>
+        <main className="flex-1 flex flex-col items-center justify-center w-full" style={{ paddingTop: 60, paddingBottom: 24 }}>
+          <div className="flex flex-col items-center w-full lg:-mt-[50px]" style={{ gap: "clamp(28px, 5vw, 44px)", padding: "0 clamp(20px, 6vw, 120px)" }}>
             {/* Header block */}
-            <div className="flex flex-col items-center" style={{ gap: 34 }}>
+            <div className="flex flex-col items-center w-full" style={{ gap: "clamp(20px, 4vw, 34px)" }}>
               <Badge />
               <h1
                 className="text-center"
-                style={{ fontFamily: FONT.fustat, fontWeight: 700, fontSize: 80, letterSpacing: "-4.8px", lineHeight: 1, color: "#000" }}
+                style={{ fontFamily: FONT.fustat, fontWeight: 700, fontSize: "clamp(34px, 9vw, 80px)", letterSpacing: "-0.06em", lineHeight: 1, color: "#000" }}
               >
                 Remove Silence Instantly
               </h1>
               <p
                 className="text-center"
-                style={{ fontFamily: FONT.fustat, fontWeight: 500, fontSize: 20, letterSpacing: "-0.4px", color: "#505050", maxWidth: 736, width: 542 }}
+                style={{ fontFamily: FONT.fustat, fontWeight: 500, fontSize: "clamp(16px, 4.2vw, 20px)", letterSpacing: "-0.02em", color: "#505050", maxWidth: 542, width: "100%" }}
               >
                 Upload your audio and get a tightened track in seconds. The silent gaps are cut out, so only what matters is left.
               </p>
