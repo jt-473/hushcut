@@ -53,6 +53,9 @@ export const metadata: Metadata = {
     description:
       "Free, unlimited, no sign-up. Trim silent gaps from any audio file right in your browser.",
   },
+  verification: {
+    google: "gl00VMLHzYI-WRl3KmlBlzihIDWoss-tMIS1qzhx2CM",
+  },
 };
 
 export default function RootLayout({
