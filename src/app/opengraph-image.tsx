@@ -13,21 +13,72 @@ export default function OpengraphImage() {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
-          padding: "80px",
-          background: "#0e1311",
-          color: "#fff",
+          justifyContent: "space-between",
+          padding: 70,
+          background: "linear-gradient(150deg, #ffffff 0%, #f3f7f1 55%, #e7f0e4 100%)",
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16, fontSize: 34, fontWeight: 600, opacity: 0.85 }}>
-          Hushcut
+        {/* Top bar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-2px", color: "#000" }}>Hushcut</span>
+          <span
+            style={{
+              display: "flex",
+              fontSize: 22,
+              fontWeight: 500,
+              color: "#fff",
+              background: "#000",
+              padding: "12px 22px",
+              borderRadius: 12,
+            }}
+          >
+            Buy me a coffee
+          </span>
         </div>
-        <div style={{ display: "flex", fontSize: 84, fontWeight: 800, letterSpacing: "-3px", lineHeight: 1.05, marginTop: 28 }}>
-          Remove silence from audio
+
+        {/* Center content */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <span
+            style={{
+              display: "flex",
+              alignSelf: "flex-start",
+              fontSize: 22,
+              color: "#0e1311",
+              background: "#fff",
+              padding: "10px 20px",
+              borderRadius: 999,
+              border: "1px solid #e3e3e3",
+            }}
+          >
+            New — trim silence in seconds
+          </span>
+          <span style={{ fontSize: 82, fontWeight: 800, letterSpacing: "-4px", lineHeight: 1, color: "#000" }}>
+            Remove silence from audio
+          </span>
+          <span style={{ fontSize: 30, color: "#505050", letterSpacing: "-0.5px" }}>
+            Upload or record, and get a clean track back in seconds.
+          </span>
         </div>
-        <div style={{ display: "flex", fontSize: 34, marginTop: 28, color: "#b7f0ad" }}>
-          Free · No sign-up · Unlimited · Runs in your browser
+
+        {/* Value props */}
+        <div style={{ display: "flex", gap: 14 }}>
+          {["100% free", "No sign-up required", "Unlimited"].map((f) => (
+            <span
+              key={f}
+              style={{
+                display: "flex",
+                fontSize: 24,
+                color: "#000",
+                background: "#fff",
+                padding: "12px 22px",
+                borderRadius: 999,
+                border: "1px solid #e3e3e3",
+              }}
+            >
+              {f}
+            </span>
+          ))}
         </div>
       </div>
     ),
