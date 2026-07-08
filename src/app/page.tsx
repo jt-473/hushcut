@@ -6,10 +6,72 @@ import {
   removeSilenceBuffer,
   audioBufferToWav,
 } from "@/lib/removeSilence";
+import { SITE_URL } from "@/lib/site";
 
 /* ─── Constants ─── */
 const VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260329_050842_be71947f-f16e-4a14-810c-06e83d23ddb5.mp4";
+
+const STEPS = [
+  {
+    title: "Add your audio",
+    body: "Upload a file or record straight from your mic. WAV, MP3, M4A and more all work.",
+  },
+  {
+    title: "We trim the silence",
+    body: "Hushcut finds the quiet gaps below your threshold and cuts them, keeping a little natural padding.",
+  },
+  {
+    title: "Download the result",
+    body: "Play it back and download a clean WAV. Nothing is ever uploaded to a server.",
+  },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: "Is Hushcut really free?",
+    a: "Yes. Hushcut is 100% free with no sign-up and no limits on how many files you process.",
+  },
+  {
+    q: "Does my audio get uploaded anywhere?",
+    a: "No. All processing happens locally in your browser using the Web Audio API, so your files never leave your device.",
+  },
+  {
+    q: "What audio formats are supported?",
+    a: "Most common formats your browser can decode, including WAV, MP3, M4A, OGG and FLAC. The trimmed result downloads as a WAV file.",
+  },
+  {
+    q: "How does it decide what counts as silence?",
+    a: "It measures loudness and removes sections below a decibel threshold you can adjust, keeping a small amount of padding so cuts sound natural. Auto mode sets the threshold from your clip's own loudness.",
+  },
+  {
+    q: "Can I use it to clean up a podcast or voice recording?",
+    a: "Yes. Hushcut is great for tightening podcasts, voiceovers, interviews and any recording with dead air.",
+  },
+];
+
+const JSON_LD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Hushcut",
+    applicationCategory: "MultimediaApplication",
+    operatingSystem: "Web",
+    url: SITE_URL,
+    description:
+      "Remove silence from audio online for free. No sign-up, no limits, runs entirely in your browser.",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ_ITEMS.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  },
+];
 
 const FONT = {
   schibsted: "var(--font-schibsted), sans-serif",
@@ -511,19 +573,87 @@ function SearchBox() {
   );
 }
 
+/* ─── How it works + FAQ (content for readers and for SEO) ─── */
+function InfoSections() {
+  const sectionPad = "clamp(56px, 9vw, 104px) clamp(20px, 6vw, 120px)";
+  return (
+    <>
+      <section id="how-it-works" className="w-full bg-white" style={{ padding: sectionPad }}>
+        <div className="mx-auto w-full" style={{ maxWidth: 960 }}>
+          <h2 style={{ fontFamily: FONT.fustat, fontWeight: 700, fontSize: "clamp(28px, 5vw, 46px)", letterSpacing: "-0.03em", color: "#000" }}>
+            How it works
+          </h2>
+          <div className="grid gap-8 sm:grid-cols-3" style={{ marginTop: 40 }}>
+            {STEPS.map((s, i) => (
+              <div key={s.title} className="flex flex-col gap-3">
+                <span
+                  className="inline-flex items-center justify-center rounded-full"
+                  style={{ width: 36, height: 36, background: "#0e1311", color: "#fff", fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 15 }}
+                >
+                  {i + 1}
+                </span>
+                <h3 style={{ fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 18, letterSpacing: "-0.02em", color: "#000" }}>
+                  {s.title}
+                </h3>
+                <p style={{ fontFamily: FONT.inter, fontSize: 15, lineHeight: 1.6, color: "#505050" }}>{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="w-full" style={{ padding: sectionPad, background: "#f8f8f8" }}>
+        <div className="mx-auto w-full" style={{ maxWidth: 760 }}>
+          <h2 style={{ fontFamily: FONT.fustat, fontWeight: 700, fontSize: "clamp(28px, 5vw, 46px)", letterSpacing: "-0.03em", color: "#000" }}>
+            Frequently asked questions
+          </h2>
+          <div className="flex flex-col" style={{ marginTop: 28 }}>
+            {FAQ_ITEMS.map((f) => (
+              <div key={f.q} style={{ borderTop: "1px solid #e6e6e6", padding: "22px 0" }}>
+                <h3 style={{ fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 17, letterSpacing: "-0.01em", color: "#000" }}>
+                  {f.q}
+                </h3>
+                <p style={{ fontFamily: FONT.inter, fontSize: 15, lineHeight: 1.6, color: "#505050", marginTop: 8 }}>{f.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer className="w-full bg-white" style={{ padding: "32px clamp(20px, 6vw, 120px)", borderTop: "1px solid #eee" }}>
+        <div className="mx-auto w-full flex flex-wrap items-center justify-between gap-3" style={{ maxWidth: 960, fontFamily: FONT.schibsted, fontSize: 14, color: "#505050" }}>
+          <span>© {new Date().getFullYear()} Hushcut</span>
+          <div className="flex items-center gap-5">
+            <a href="https://github.com/jt-473/hushcut" target="_blank" rel="noopener noreferrer" className="hover:opacity-60 transition-opacity">
+              GitHub
+            </a>
+            <a href="https://buymeacoffee.com/hushcut2" target="_blank" rel="noopener noreferrer" className="hover:opacity-60 transition-opacity">
+              Buy me a coffee
+            </a>
+          </div>
+        </div>
+      </footer>
+    </>
+  );
+}
+
 /* ─── Page ─── */
 export default function Home() {
   return (
-    <div className="relative w-full min-h-screen bg-white">
-      <div className="absolute inset-0 overflow-hidden z-0">
-        <VideoBackground />
-      </div>
+    <div className="w-full bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <Nav />
+      {/* Hero */}
+      <div className="relative w-full min-h-screen">
+        <div className="absolute inset-0 overflow-hidden z-0">
+          <VideoBackground />
+        </div>
 
-        {/* Hero content */}
-        <main className="flex-1 flex flex-col items-center justify-center w-full" style={{ paddingTop: 60, paddingBottom: 24 }}>
+        <div className="relative z-10 flex flex-col min-h-screen">
+          <Nav />
+
+          {/* Hero content */}
+          <main className="flex-1 flex flex-col items-center justify-center w-full" style={{ paddingTop: 60, paddingBottom: 24 }}>
           <div className="flex flex-col items-center w-full lg:-mt-[50px]" style={{ gap: "clamp(28px, 5vw, 44px)", padding: "0 clamp(20px, 6vw, 120px)" }}>
             {/* Header block */}
             <div className="flex flex-col items-center w-full" style={{ gap: "clamp(20px, 4vw, 34px)" }}>
@@ -561,7 +691,10 @@ export default function Home() {
             <SearchBox />
           </div>
         </main>
+        </div>
       </div>
+
+      <InfoSections />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Schibsted_Grotesk, Noto_Sans, Fustat } from "next/font/google";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -27,6 +28,7 @@ const fustat = Fustat({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Hushcut — Remove Silence From Audio Online, Free",
   description:
     "Remove silence from audio online for free. No sign-up, no limits, no upload — Hushcut trims the silent gaps right in your browser and gives you a clean file to download.",
