@@ -63,6 +63,11 @@ const Waveform = ({ size = 14 }: { size?: number }) => (
     <path d="M2 10v3" /><path d="M6 6v11" /><path d="M10 3v18" /><path d="M14 8v7" /><path d="M18 5v13" /><path d="M22 10v3" />
   </svg>
 );
+const Check = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
 
 /* ─── Video background with custom JS fade system (no CSS transitions) ─── */
 function VideoBackground() {
@@ -535,6 +540,22 @@ export default function Home() {
               >
                 Upload your audio and get a tightened track in seconds. The silent gaps are cut out, so only what matters is left.
               </p>
+
+              {/* Value props */}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {["100% free", "No sign-up required", "Unlimited"].map((f) => (
+                  <span
+                    key={f}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white"
+                    style={{ padding: "5px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", fontFamily: FONT.inter, fontSize: 13, color: "#000" }}
+                  >
+                    <span style={{ color: "rgba(60,170,45,1)", display: "inline-flex" }}>
+                      <Check size={13} />
+                    </span>
+                    {f}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <SearchBox />

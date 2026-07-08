@@ -27,9 +27,30 @@ const fustat = Fustat({
 });
 
 export const metadata: Metadata = {
-  title: "Hushcut — Remove Silence From Audio",
+  title: "Hushcut — Remove Silence From Audio Online, Free",
   description:
-    "Upload your audio and get a tightened track in seconds. Silence removal that runs entirely in your browser.",
+    "Remove silence from audio online for free. No sign-up, no limits, no upload — Hushcut trims the silent gaps right in your browser and gives you a clean file to download.",
+  keywords: [
+    "remove silence from audio",
+    "audio silence remover",
+    "trim silence online",
+    "cut silence from audio",
+    "free audio editor",
+    "remove dead air podcast",
+  ],
+  openGraph: {
+    title: "Hushcut — Remove Silence From Audio Online, Free",
+    description:
+      "Free, unlimited, no sign-up. Trim silent gaps from any audio file right in your browser.",
+    siteName: "Hushcut",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hushcut — Remove Silence From Audio Online, Free",
+    description:
+      "Free, unlimited, no sign-up. Trim silent gaps from any audio file right in your browser.",
+  },
 };
 
 export default function RootLayout({
