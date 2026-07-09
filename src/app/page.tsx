@@ -6,6 +6,7 @@ import {
   removeSilenceBuffer,
   audioBufferToWav,
 } from "@/lib/removeSilence";
+import { enhanceBuffer } from "@/lib/enhanceAudio";
 import { SITE_URL } from "@/lib/site";
 
 /* ─── Constants ─── */
@@ -43,6 +44,10 @@ const FAQ_ITEMS = [
   {
     q: "How does it decide what counts as silence?",
     a: "It measures loudness and removes sections below a decibel threshold you can adjust, keeping a small amount of padding so cuts sound natural. Auto mode sets the threshold from your clip's own loudness.",
+  },
+  {
+    q: "What does Enhance voice do?",
+    a: "It runs your audio through a voice-cleanup chain: a high-pass filter to remove low rumble and hum, a bass and treble lift for warmth and clarity, and a compressor to even out the loud and quiet parts. The result sounds fuller and more professional. You can use it on its own or together with silence trimming.",
   },
   {
     q: "Can I use it to clean up a podcast or voice recording?",
@@ -276,8 +281,11 @@ const MAX_BYTES = 200 * 1024 * 1024;
 
 interface Result {
   url: string;
+  beforeUrl: string;
   before: number;
   after: number;
+  trimmed: boolean;
+  enhanced: boolean;
 }
 
 function SearchBox() {
@@ -288,6 +296,8 @@ function SearchBox() {
   const [thresholdDb, setThresholdDb] = useState(-45);
   const [keepMs, setKeepMs] = useState(50);
   const [auto, setAuto] = useState(false);
+  const [trim, setTrim] = useState(true);
+  const [enhance, setEnhance] = useState(false);
   const [showThreshold, setShowThreshold] = useState(false);
   const [recording, setRecording] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -295,32 +305,42 @@ function SearchBox() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<Blob | null>(null);
   const lastUrlRef = useRef<string | null>(null);
+  const origUrlRef = useRef<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     return () => {
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
+      if (origUrlRef.current) URL.revokeObjectURL(origUrlRef.current);
     };
   }, []);
 
   const process = async (input: Blob) => {
+    if (!trim && !enhance) {
+      setErrorMsg("Turn on Trim silence, Enhance voice, or both.");
+      setStatus("error");
+      return;
+    }
     setStatus("processing");
     setErrorMsg("");
     try {
       const { ctx, buffer } = await decodeAudioFile(input);
       const before = buffer.duration;
-      const out = removeSilenceBuffer(ctx, buffer, {
-        auto,
-        thresholdDb,
-        keepSilenceMs: keepMs,
-      });
+
+      let out = buffer;
+      if (trim) out = removeSilenceBuffer(ctx, out, { auto, thresholdDb, keepSilenceMs: keepMs });
+      if (enhance) out = await enhanceBuffer(out);
+
       const after = out.length / out.sampleRate;
       const wav = audioBufferToWav(out);
       const url = URL.createObjectURL(wav);
+      const beforeUrl = URL.createObjectURL(input);
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current);
+      if (origUrlRef.current) URL.revokeObjectURL(origUrlRef.current);
       lastUrlRef.current = url;
-      setResult({ url, before, after });
+      origUrlRef.current = beforeUrl;
+      setResult({ url, beforeUrl, before, after, trimmed: trim, enhanced: enhance });
       setStatus("done");
       if (ctx.state !== "closed") ctx.close();
     } catch (e) {
@@ -399,6 +419,17 @@ function SearchBox() {
     fontSize: 13,
   } as const;
 
+  const modePill = (active: boolean) =>
+    ({
+      background: active ? "rgba(90,225,76,0.89)" : "rgba(255,255,255,0.18)",
+      color: active ? "#000" : "#fff",
+      padding: "4px 12px",
+      borderRadius: 8,
+      fontFamily: FONT.schibsted,
+      fontWeight: 600,
+      fontSize: 12,
+    }) as const;
+
   return (
     <div className="w-full flex flex-col items-center gap-3" style={{ maxWidth: 728 }}>
       <input ref={fileInputRef} type="file" accept="audio/*" onChange={onInputChange} className="hidden" />
@@ -421,18 +452,21 @@ function SearchBox() {
           style={{ fontFamily: FONT.schibsted, fontWeight: 500, fontSize: 12, color: "#fff" }}
         >
           <div className="flex items-center gap-2">
-            <span>Silence threshold {auto ? "Auto" : `${thresholdDb} dB`}</span>
             <button
-              onClick={() => setAuto((v) => !v)}
-              className="rounded-md transition-opacity hover:opacity-90"
-              style={{
-                background: auto ? "rgba(90,225,76,0.89)" : "rgba(255,255,255,0.18)",
-                color: auto ? "#000" : "#fff",
-                padding: "3px 10px",
-                fontWeight: 600,
-              }}
+              onClick={() => setTrim((v) => !v)}
+              className="transition-opacity hover:opacity-90"
+              style={modePill(trim)}
+              title="Cut out the silent gaps in your audio"
             >
-              Auto
+              Trim silence
+            </button>
+            <button
+              onClick={() => setEnhance((v) => !v)}
+              className="transition-opacity hover:opacity-90"
+              style={modePill(enhance)}
+              title="Boost clarity and warmth, cut low rumble, and even out the volume"
+            >
+              Enhance voice
             </button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -464,7 +498,7 @@ function SearchBox() {
             className="flex-1 min-w-0 truncate"
             style={{ fontFamily: FONT.inter, fontSize: 16, color: fileName ? "#000" : "rgba(0,0,0,0.6)" }}
           >
-            {fileName ?? "Drop an audio file to remove silence..."}
+            {fileName ?? "Drop an audio file to clean it up..."}
           </span>
           <button
             onClick={(e) => {
@@ -512,6 +546,15 @@ function SearchBox() {
                   className="absolute left-0 bottom-full mb-2 flex flex-col gap-3 bg-white"
                   style={{ width: 240, borderRadius: 12, padding: 14, boxShadow: "0 8px 28px rgba(0,0,0,0.22)", zIndex: 20 }}
                 >
+                  <div className="flex items-center justify-between" style={{ fontFamily: FONT.schibsted, fontSize: 12, color: "#000" }}>
+                    <span>Auto threshold</span>
+                    <button
+                      onClick={() => setAuto((v) => !v)}
+                      style={{ background: auto ? "rgba(90,225,76,0.89)" : "#eee", color: "#000", padding: "3px 12px", borderRadius: 6, fontWeight: 600 }}
+                    >
+                      {auto ? "On" : "Off"}
+                    </button>
+                  </div>
                   <label className="flex flex-col gap-1" style={{ fontFamily: FONT.schibsted, fontSize: 12, color: auto ? "#aaa" : "#000" }}>
                     <span className="flex justify-between">
                       <span>Threshold</span>
@@ -538,7 +581,7 @@ function SearchBox() {
       {status === "processing" && (
         <div className="w-full flex items-center gap-3 bg-white" style={{ borderRadius: 14, padding: "14px 18px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", fontFamily: FONT.schibsted, fontSize: 14, color: "#000" }}>
           <span className="animate-spin rounded-full" style={{ width: 16, height: 16, border: "2px solid rgba(0,0,0,0.2)", borderTopColor: "#000" }} />
-          Removing silence...
+          {enhance && !trim ? "Enhancing audio..." : enhance ? "Trimming and enhancing..." : "Removing silence..."}
         </div>
       )}
 
@@ -550,26 +593,135 @@ function SearchBox() {
 
       {status === "done" && result && (
         <div className="w-full flex flex-col gap-3 bg-white" style={{ borderRadius: 14, padding: 18, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
-          <div className="flex items-center justify-between" style={{ fontFamily: FONT.schibsted, fontSize: 13, color: "#505050" }}>
-            <span className="truncate" style={{ color: "#000", fontWeight: 600 }}>{fileName}</span>
-            <span>
-              {fmt(result.before)} → <span style={{ color: "#000", fontWeight: 600 }}>{fmt(result.after)}</span>
-              <span style={{ color: "rgba(90,180,60,1)", marginLeft: 8 }}>-{pct.toFixed(0)}% ({fmt(removed)} cut)</span>
+          <div className="flex items-center justify-between gap-2 flex-wrap" style={{ fontFamily: FONT.schibsted, fontSize: 13, color: "#505050" }}>
+            <span className="truncate" style={{ color: "#000", fontWeight: 600, maxWidth: "50%" }}>{fileName}</span>
+            <span className="flex items-center gap-2 flex-wrap justify-end">
+              {result.trimmed && (
+                <span>
+                  {fmt(result.before)} → <span style={{ color: "#000", fontWeight: 600 }}>{fmt(result.after)}</span>
+                  <span style={{ color: "rgba(90,180,60,1)", marginLeft: 6 }}>-{pct.toFixed(0)}% ({fmt(removed)} cut)</span>
+                </span>
+              )}
+              {result.enhanced && (
+                <span style={{ background: "rgba(90,200,60,0.16)", color: "#2f7d20", padding: "2px 9px", borderRadius: 6, fontWeight: 600 }}>
+                  Voice enhanced
+                </span>
+              )}
             </span>
           </div>
-          <audio controls src={result.url} className="w-full" />
+
+          {/* Before / after so you can hear the difference */}
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <span style={{ fontFamily: FONT.schibsted, fontSize: 12, color: "#909090" }}>Before</span>
+              <audio controls src={result.beforeUrl} className="w-full" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span style={{ fontFamily: FONT.schibsted, fontSize: 12, fontWeight: 600, color: "#000" }}>After</span>
+              <audio controls src={result.url} className="w-full" />
+            </div>
+          </div>
+
           <a
             href={result.url}
-            download={`trimmed_${(fileName ?? "audio").replace(/\.[^.]+$/, "")}.wav`}
+            download={`hushcut_${(fileName ?? "audio").replace(/\.[^.]+$/, "")}.wav`}
             className="flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
             style={{ background: "#000", color: "#fff", borderRadius: 10, padding: "10px 16px", fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 14 }}
           >
             <Upload size={14} />
-            Download trimmed audio
+            Download {result.enhanced && result.trimmed ? "cleaned" : result.enhanced ? "enhanced" : "trimmed"} audio
           </a>
         </div>
       )}
     </div>
+  );
+}
+
+/* ─── What "Enhance voice" does + live before/after demo ─── */
+function EnhanceDemo() {
+  const [afterUrl, setAfterUrl] = useState<string | null>(null);
+  const [hasSample, setHasSample] = useState(false);
+
+  useEffect(() => {
+    let url: string | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/sample.wav");
+        if (!res.ok) return;
+        const blob = await res.blob();
+        if (blob.size < 1000) return; // guard against a 404 HTML page
+        const { ctx, buffer } = await decodeAudioFile(blob);
+        const enhanced = await enhanceBuffer(buffer);
+        const wav = audioBufferToWav(enhanced);
+        if (cancelled) {
+          if (ctx.state !== "closed") ctx.close();
+          return;
+        }
+        url = URL.createObjectURL(wav);
+        setAfterUrl(url);
+        setHasSample(true);
+        if (ctx.state !== "closed") ctx.close();
+      } catch {
+        /* no sample available; explanation still shows */
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, []);
+
+  const points = [
+    "Cuts low rumble and hum with a high-pass filter",
+    "Adds warmth in the low end (bass boost)",
+    "Adds clarity and crispness up top (treble boost)",
+    "Evens out the loud and quiet parts with a compressor, then lifts the level",
+  ];
+
+  return (
+    <section id="enhance" className="w-full" style={{ padding: "clamp(56px, 9vw, 104px) clamp(20px, 6vw, 120px)", background: "#f8f8f8" }}>
+      <div className="mx-auto w-full" style={{ maxWidth: 760 }}>
+        <h2 style={{ fontFamily: FONT.fustat, fontWeight: 700, fontSize: "clamp(28px, 5vw, 46px)", letterSpacing: "-0.03em", color: "#000" }}>
+          What &ldquo;Enhance voice&rdquo; does
+        </h2>
+        <p style={{ fontFamily: FONT.inter, fontSize: 16, lineHeight: 1.6, color: "#505050", marginTop: 16 }}>
+          Recording sound thin, muddy or uneven? Turn on <strong style={{ color: "#000" }}>Enhance voice</strong> and Hushcut runs it
+          through the kind of cleanup a sound engineer would do, all in your browser:
+        </p>
+        <ul className="flex flex-col gap-2" style={{ marginTop: 18 }}>
+          {points.map((p) => (
+            <li key={p} className="flex items-start gap-2" style={{ fontFamily: FONT.inter, fontSize: 15, color: "#505050" }}>
+              <span style={{ color: "rgba(60,170,45,1)", display: "inline-flex", marginTop: 2 }}>
+                <Check size={15} />
+              </span>
+              {p}
+            </li>
+          ))}
+        </ul>
+        <p style={{ fontFamily: FONT.inter, fontSize: 15, color: "#505050", marginTop: 16 }}>
+          Use it on its own, or together with silence trimming in a single pass.
+        </p>
+
+        {hasSample && afterUrl && (
+          <div style={{ marginTop: 36 }}>
+            <h3 style={{ fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 18, letterSpacing: "-0.02em", color: "#000" }}>
+              Hear the difference
+            </h3>
+            <div className="grid gap-5 sm:grid-cols-2" style={{ marginTop: 16 }}>
+              <div className="flex flex-col gap-2 bg-white" style={{ borderRadius: 14, padding: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+                <span style={{ fontFamily: FONT.schibsted, fontSize: 13, color: "#909090" }}>Before</span>
+                <audio controls src="/sample.wav" className="w-full" />
+              </div>
+              <div className="flex flex-col gap-2 bg-white" style={{ borderRadius: 14, padding: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
+                <span style={{ fontFamily: FONT.schibsted, fontSize: 13, fontWeight: 600, color: "#000" }}>After (enhanced)</span>
+                <audio controls src={afterUrl} className="w-full" />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -694,6 +846,7 @@ export default function Home() {
         </div>
       </div>
 
+      <EnhanceDemo />
       <InfoSections />
     </div>
   );
