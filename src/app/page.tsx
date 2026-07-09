@@ -7,6 +7,8 @@ import {
   audioBufferToWav,
 } from "@/lib/removeSilence";
 import { enhanceBuffer } from "@/lib/enhanceAudio";
+import { denoiseBuffer } from "@/lib/denoise";
+import { audioBufferToMp3 } from "@/lib/exportAudio";
 import { SITE_URL } from "@/lib/site";
 
 /* ─── Constants ─── */
@@ -39,7 +41,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "What audio formats are supported?",
-    a: "Most common formats your browser can decode, including WAV, MP3, M4A, OGG and FLAC. The trimmed result downloads as a WAV file.",
+    a: "Most common formats your browser can decode, including WAV, MP3, M4A, OGG and FLAC. You can download the result as either WAV (lossless) or MP3 (smaller and ready to upload).",
+  },
+  {
+    q: "What does Reduce noise do?",
+    a: "It listens for the constant background noise in your recording — hiss, hum, fan or air-con — and attenuates it while leaving your voice intact. It works best on steady background noise; very loud or irregular noise is harder to remove cleanly.",
   },
   {
     q: "How does it decide what counts as silence?",
@@ -286,6 +292,7 @@ interface Result {
   after: number;
   trimmed: boolean;
   enhanced: boolean;
+  denoised: boolean;
 }
 
 function SearchBox() {
@@ -298,6 +305,8 @@ function SearchBox() {
   const [auto, setAuto] = useState(false);
   const [trim, setTrim] = useState(true);
   const [enhance, setEnhance] = useState(false);
+  const [denoise, setDenoise] = useState(false);
+  const [format, setFormat] = useState<"wav" | "mp3">("wav");
   const [showThreshold, setShowThreshold] = useState(false);
   const [recording, setRecording] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -306,6 +315,7 @@ function SearchBox() {
   const selectedRef = useRef<Blob | null>(null);
   const lastUrlRef = useRef<string | null>(null);
   const origUrlRef = useRef<string | null>(null);
+  const outBufferRef = useRef<AudioBuffer | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -317,8 +327,8 @@ function SearchBox() {
   }, []);
 
   const process = async (input: Blob) => {
-    if (!trim && !enhance) {
-      setErrorMsg("Turn on Trim silence, Enhance voice, or both.");
+    if (!trim && !enhance && !denoise) {
+      setErrorMsg("Turn on at least one: Trim silence, Reduce noise, or Enhance voice.");
       setStatus("error");
       return;
     }
@@ -328,10 +338,13 @@ function SearchBox() {
       const { ctx, buffer } = await decodeAudioFile(input);
       const before = buffer.duration;
 
+      // Clean noise first, then trim on the cleaned signal, then enhance the result.
       let out = buffer;
+      if (denoise) out = denoiseBuffer(ctx, out);
       if (trim) out = removeSilenceBuffer(ctx, out, { auto, thresholdDb, keepSilenceMs: keepMs });
       if (enhance) out = await enhanceBuffer(out);
 
+      outBufferRef.current = out;
       const after = out.length / out.sampleRate;
       const wav = audioBufferToWav(out);
       const url = URL.createObjectURL(wav);
@@ -340,13 +353,28 @@ function SearchBox() {
       if (origUrlRef.current) URL.revokeObjectURL(origUrlRef.current);
       lastUrlRef.current = url;
       origUrlRef.current = beforeUrl;
-      setResult({ url, beforeUrl, before, after, trimmed: trim, enhanced: enhance });
+      setResult({ url, beforeUrl, before, after, trimmed: trim, enhanced: enhance, denoised: denoise });
       setStatus("done");
       if (ctx.state !== "closed") ctx.close();
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Could not process this file.");
       setStatus("error");
     }
+  };
+
+  const handleDownload = () => {
+    const buf = outBufferRef.current;
+    if (!buf) return;
+    const blob = format === "mp3" ? audioBufferToMp3(buf) : audioBufferToWav(buf);
+    const url = URL.createObjectURL(blob);
+    const base = (fileName ?? "audio").replace(/\.[^.]+$/, "");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `hushcut_${base}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
   const handleFile = (file: File | Blob, name: string) => {
@@ -451,7 +479,7 @@ function SearchBox() {
           className="flex items-center justify-between flex-wrap gap-x-3 gap-y-1.5"
           style={{ fontFamily: FONT.schibsted, fontWeight: 500, fontSize: 12, color: "#fff" }}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setTrim((v) => !v)}
               className="transition-opacity hover:opacity-90"
@@ -459,6 +487,14 @@ function SearchBox() {
               title="Cut out the silent gaps in your audio"
             >
               Trim silence
+            </button>
+            <button
+              onClick={() => setDenoise((v) => !v)}
+              className="transition-opacity hover:opacity-90"
+              style={modePill(denoise)}
+              title="Reduce background hiss, hum and room noise"
+            >
+              Reduce noise
             </button>
             <button
               onClick={() => setEnhance((v) => !v)}
@@ -581,7 +617,7 @@ function SearchBox() {
       {status === "processing" && (
         <div className="w-full flex items-center gap-3 bg-white" style={{ borderRadius: 14, padding: "14px 18px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)", fontFamily: FONT.schibsted, fontSize: 14, color: "#000" }}>
           <span className="animate-spin rounded-full" style={{ width: 16, height: 16, border: "2px solid rgba(0,0,0,0.2)", borderTopColor: "#000" }} />
-          {enhance && !trim ? "Enhancing audio..." : enhance ? "Trimming and enhancing..." : "Removing silence..."}
+          {denoise ? "Cleaning up your audio (this can take a moment)..." : enhance && !trim ? "Enhancing audio..." : enhance ? "Trimming and enhancing..." : "Removing silence..."}
         </div>
       )}
 
@@ -600,6 +636,11 @@ function SearchBox() {
                 <span>
                   {fmt(result.before)} → <span style={{ color: "#000", fontWeight: 600 }}>{fmt(result.after)}</span>
                   <span style={{ color: "rgba(90,180,60,1)", marginLeft: 6 }}>-{pct.toFixed(0)}% ({fmt(removed)} cut)</span>
+                </span>
+              )}
+              {result.denoised && (
+                <span style={{ background: "rgba(90,200,60,0.16)", color: "#2f7d20", padding: "2px 9px", borderRadius: 6, fontWeight: 600 }}>
+                  Noise reduced
                 </span>
               )}
               {result.enhanced && (
@@ -622,15 +663,34 @@ function SearchBox() {
             </div>
           </div>
 
-          <a
-            href={result.url}
-            download={`hushcut_${(fileName ?? "audio").replace(/\.[^.]+$/, "")}.wav`}
-            className="flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-            style={{ background: "#000", color: "#fff", borderRadius: 10, padding: "10px 16px", fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 14 }}
-          >
-            <Upload size={14} />
-            Download {result.enhanced && result.trimmed ? "cleaned" : result.enhanced ? "enhanced" : "trimmed"} audio
-          </a>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center rounded-lg overflow-hidden shrink-0" style={{ border: "1px solid #e3e3e3" }}>
+              {(["wav", "mp3"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFormat(f)}
+                  style={{
+                    background: format === f ? "#000" : "#fff",
+                    color: format === f ? "#fff" : "#505050",
+                    padding: "9px 14px",
+                    fontFamily: FONT.schibsted,
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  {f.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleDownload}
+              className="flex-1 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              style={{ background: "#000", color: "#fff", borderRadius: 10, padding: "10px 16px", fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 14, minWidth: 180 }}
+            >
+              <Upload size={14} />
+              Download {[result.trimmed, result.denoised, result.enhanced].filter(Boolean).length > 1 ? "cleaned" : result.trimmed ? "trimmed" : result.denoised ? "denoised" : "enhanced"} {format.toUpperCase()}
+            </button>
+          </div>
         </div>
       )}
     </div>
