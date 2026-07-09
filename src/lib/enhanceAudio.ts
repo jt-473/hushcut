@@ -1,58 +1,73 @@
 /**
- * Voice enhancement chain, mirroring the common Audacity cleanup flow:
- *   high-pass (low roll-off for speech) -> bass shelf -> treble shelf
- *   -> compressor -> makeup gain -> peak normalize.
- * Rendered offline via OfflineAudioContext, so it is fast and stays in the browser.
+ * Broadcast-style voice mastering chain, rendered offline via OfflineAudioContext:
+ *
+ *   high-pass (kill rumble)
+ *   -> de-mud dip (~300 Hz)  -> warmth low-shelf (~120 Hz)
+ *   -> presence bell (~3.2 kHz) -> air high-shelf (~9.5 kHz)
+ *   -> de-esser (split high band, compress it) so the top end stays smooth
+ *   -> main compressor (even out dynamics)
+ *   -> gentle saturation (harmonics = perceived crispness + loudness)
+ *   -> makeup gain
+ *   then a loudness-normalize + soft-limit pass so it comes out clean and loud.
+ *
+ * Everything runs in the browser; nothing is uploaded.
  */
 
-export interface EnhanceOptions {
-  highPassHz: number; // low roll-off for speech (removes rumble/hum)
-  bassHz: number;
-  bassGainDb: number;
-  trebleHz: number;
-  trebleGainDb: number;
-  compThresholdDb: number;
-  compRatio: number;
-  compAttack: number; // seconds
-  compRelease: number; // seconds
-  targetPeak: number; // 0..1, normalize output peak to this (0.89 ~ -1 dBFS)
+function makeSaturationCurve(k: number): Float32Array<ArrayBuffer> {
+  const n = 2048;
+  const curve = new Float32Array(new ArrayBuffer(n * 4));
+  const denom = Math.tanh(k);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(k * x) / denom;
+  }
+  return curve;
 }
 
-export const DEFAULT_ENHANCE: EnhanceOptions = {
-  highPassHz: 90,
-  bassHz: 200,
-  bassGainDb: 4,
-  trebleHz: 3500,
-  trebleGainDb: 4,
-  compThresholdDb: -20,
-  compRatio: 2,
-  compAttack: 0.05,
-  compRelease: 0.25,
-  targetPeak: 0.89,
-};
+/** Loudness-normalize toward a target RMS, then soft-limit peaks and normalize the ceiling. */
+function finalize(buffer: AudioBuffer, targetRms = 0.12, ceiling = 0.97) {
+  const chs = buffer.numberOfChannels;
 
-function normalizePeak(buffer: AudioBuffer, target: number) {
+  let sumSq = 0;
+  let count = 0;
+  for (let ch = 0; ch < chs; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
+      sumSq += d[i] * d[i];
+      count++;
+    }
+  }
+  const rms = Math.sqrt(sumSq / Math.max(1, count));
+  const gain = Math.min(8, rms > 1e-6 ? targetRms / rms : 1); // cap the boost at +18 dB
+
+  // soft knee limiter: leave low levels alone, gently round off peaks
+  const knee = 0.7;
+  const soft = (x: number) => {
+    const a = Math.abs(x);
+    if (a <= knee) return x;
+    return Math.sign(x) * (knee + (1 - knee) * Math.tanh((a - knee) / (1 - knee)));
+  };
+
   let peak = 0;
-  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-    const data = buffer.getChannelData(ch);
-    for (let i = 0; i < data.length; i++) {
-      const v = Math.abs(data[i]);
-      if (v > peak) peak = v;
+  for (let ch = 0; ch < chs; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) {
+      const x = soft(d[i] * gain);
+      d[i] = x;
+      const a = Math.abs(x);
+      if (a > peak) peak = a;
     }
   }
   if (peak > 0) {
-    const gain = target / peak;
-    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      const data = buffer.getChannelData(ch);
-      for (let i = 0; i < data.length; i++) data[i] *= gain;
+    const g2 = ceiling / peak;
+    for (let ch = 0; ch < chs; ch++) {
+      const d = buffer.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) d[i] *= g2;
     }
   }
 }
 
-export async function enhanceBuffer(
-  buffer: AudioBuffer,
-  opts: EnhanceOptions = DEFAULT_ENHANCE
-): Promise<AudioBuffer> {
+export async function enhanceBuffer(buffer: AudioBuffer): Promise<AudioBuffer> {
   const OAC =
     window.OfflineAudioContext ||
     (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext;
@@ -61,35 +76,68 @@ export async function enhanceBuffer(
   const src = ctx.createBufferSource();
   src.buffer = buffer;
 
-  const highPass = ctx.createBiquadFilter();
-  highPass.type = "highpass";
-  highPass.frequency.value = opts.highPassHz;
-  highPass.Q.value = 0.7;
+  const biquad = (type: BiquadFilterType, freq: number, gain = 0, q = 0.7) => {
+    const f = ctx.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    f.gain.value = gain;
+    f.Q.value = q;
+    return f;
+  };
 
-  const bass = ctx.createBiquadFilter();
-  bass.type = "lowshelf";
-  bass.frequency.value = opts.bassHz;
-  bass.gain.value = opts.bassGainDb;
+  // Tone shaping
+  const highPass = biquad("highpass", 85, 0, 0.7);
+  const deMud = biquad("peaking", 300, -3.5, 1.0);
+  const warmth = biquad("lowshelf", 120, 2);
+  const presence = biquad("peaking", 3200, 4.5, 0.9);
+  const air = biquad("highshelf", 9500, 4);
 
-  const treble = ctx.createBiquadFilter();
-  treble.type = "highshelf";
-  treble.frequency.value = opts.trebleHz;
-  treble.gain.value = opts.trebleGainDb;
+  src.connect(highPass);
+  highPass.connect(deMud);
+  deMud.connect(warmth);
+  warmth.connect(presence);
+  presence.connect(air);
 
+  // De-esser: split around 5.5 kHz, compress the high band hard, recombine.
+  const lowBand = biquad("lowpass", 5500, 0, 0.7);
+  const highBand = biquad("highpass", 5500, 0, 0.7);
+  const deEss = ctx.createDynamicsCompressor();
+  deEss.threshold.value = -30;
+  deEss.knee.value = 6;
+  deEss.ratio.value = 5;
+  deEss.attack.value = 0.002;
+  deEss.release.value = 0.05;
+
+  const merge = ctx.createGain();
+  air.connect(lowBand);
+  air.connect(highBand);
+  highBand.connect(deEss);
+  lowBand.connect(merge);
+  deEss.connect(merge);
+
+  // Main compressor to even out dynamics
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = opts.compThresholdDb;
-  comp.knee.value = 6;
-  comp.ratio.value = opts.compRatio;
-  comp.attack.value = opts.compAttack;
-  comp.release.value = opts.compRelease;
+  comp.threshold.value = -22;
+  comp.knee.value = 8;
+  comp.ratio.value = 3;
+  comp.attack.value = 0.02;
+  comp.release.value = 0.2;
+
+  // Gentle harmonic saturation for perceived crispness
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = makeSaturationCurve(1.6);
+  shaper.oversample = "4x";
 
   const makeup = ctx.createGain();
-  makeup.gain.value = 1.4;
+  makeup.gain.value = 1.25;
 
-  src.connect(highPass).connect(bass).connect(treble).connect(comp).connect(makeup).connect(ctx.destination);
+  merge.connect(comp);
+  comp.connect(shaper);
+  shaper.connect(makeup);
+  makeup.connect(ctx.destination);
+
   src.start();
-
   const rendered = await ctx.startRendering();
-  normalizePeak(rendered, opts.targetPeak);
+  finalize(rendered);
   return rendered;
 }
