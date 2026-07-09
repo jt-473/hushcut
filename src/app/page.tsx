@@ -637,41 +637,8 @@ function SearchBox() {
   );
 }
 
-/* ─── What "Enhance voice" does + live before/after demo ─── */
+/* ─── What "Enhance voice" does ─── */
 function EnhanceDemo() {
-  const [afterUrl, setAfterUrl] = useState<string | null>(null);
-  const [hasSample, setHasSample] = useState(false);
-
-  useEffect(() => {
-    let url: string | null = null;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/sample.wav");
-        if (!res.ok) return;
-        const blob = await res.blob();
-        if (blob.size < 1000) return; // guard against a 404 HTML page
-        const { ctx, buffer } = await decodeAudioFile(blob);
-        const enhanced = await enhanceBuffer(buffer);
-        const wav = audioBufferToWav(enhanced);
-        if (cancelled) {
-          if (ctx.state !== "closed") ctx.close();
-          return;
-        }
-        url = URL.createObjectURL(wav);
-        setAfterUrl(url);
-        setHasSample(true);
-        if (ctx.state !== "closed") ctx.close();
-      } catch {
-        /* no sample available; explanation still shows */
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, []);
-
   const points = [
     "Cuts low rumble and hum with a high-pass filter",
     "Adds warmth in the low end (bass boost)",
@@ -700,26 +667,9 @@ function EnhanceDemo() {
           ))}
         </ul>
         <p style={{ fontFamily: FONT.inter, fontSize: 15, color: "#505050", marginTop: 16 }}>
-          Use it on its own, or together with silence trimming in a single pass.
+          Drop in a file and you&apos;ll get a <strong style={{ color: "#000" }}>before and after</strong> player, so you can hear the
+          difference on your own audio. Use it on its own, or together with silence trimming in a single pass.
         </p>
-
-        {hasSample && afterUrl && (
-          <div style={{ marginTop: 36 }}>
-            <h3 style={{ fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 18, letterSpacing: "-0.02em", color: "#000" }}>
-              Hear the difference
-            </h3>
-            <div className="grid gap-5 sm:grid-cols-2" style={{ marginTop: 16 }}>
-              <div className="flex flex-col gap-2 bg-white" style={{ borderRadius: 14, padding: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
-                <span style={{ fontFamily: FONT.schibsted, fontSize: 13, color: "#909090" }}>Before</span>
-                <audio controls src="/sample.wav" className="w-full" />
-              </div>
-              <div className="flex flex-col gap-2 bg-white" style={{ borderRadius: 14, padding: 16, boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
-                <span style={{ fontFamily: FONT.schibsted, fontSize: 13, fontWeight: 600, color: "#000" }}>After (enhanced)</span>
-                <audio controls src={afterUrl} className="w-full" />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );
