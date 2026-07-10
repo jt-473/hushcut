@@ -53,7 +53,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What does Enhance voice do?",
-    a: "It runs your audio through a broadcast-style voice mastering chain: it removes low rumble and muddy frequencies, boosts presence and air for crispness, de-esses harsh 's' sounds, compresses to even out the dynamics, and loudness-normalizes so it comes out clean, crisp and consistently loud. You can use it on its own or together with silence trimming.",
+    a: "It gives your audio a gentle, natural polish: a high-pass filter to remove low rumble, a subtle lift of warmth, presence and air for clarity, and light compression to even out the loud and quiet parts. It is deliberately restrained so your voice sounds cleaner without sounding processed. You can use it on its own or together with silence trimming.",
   },
   {
     q: "Can I use it to clean up a podcast or voice recording?",
@@ -700,10 +700,10 @@ function SearchBox() {
 /* ─── What "Enhance voice" does ─── */
 function EnhanceDemo() {
   const points = [
-    "Cuts low rumble and boxy mud so your voice sits clear",
-    "Adds presence and air up top for crispness",
-    "Tames harsh, hissy “s” sounds with a de-esser",
-    "Compresses and loudness-normalizes to a consistent, produced level",
+    "Cuts low rumble so your voice sits clear",
+    "Adds a touch of warmth, presence and air",
+    "Lightly evens out the loud and quiet parts",
+    "A natural polish: subtle, not over-processed",
   ];
 
   return (
