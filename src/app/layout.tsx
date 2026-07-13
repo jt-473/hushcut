@@ -29,7 +29,10 @@ const fustat = Fustat({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Hushcut",
+  title: {
+    default: "Hushcut",
+    template: "%s · Hushcut",
+  },
   description:
     "Remove silence from audio online for free. No sign-up, no limits, no upload — Hushcut trims the silent gaps right in your browser and gives you a clean file to download.",
   keywords: [

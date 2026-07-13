@@ -4,6 +4,15 @@ export const alt = "Hushcut — Remove Silence From Audio Online, Free";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const MARK_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='100' height='40' viewBox='0 0 100 40' fill='#000'>" +
+  "<rect x='6' y='14' width='4' height='12' rx='2'/><rect x='13' y='9' width='4' height='22' rx='2'/>" +
+  "<rect x='20' y='4' width='4' height='32' rx='2'/><rect x='27' y='1' width='4' height='38' rx='2'/>" +
+  "<rect x='34' y='8' width='4' height='24' rx='2'/><rect x='41' y='13' width='4' height='14' rx='2'/>" +
+  "<rect x='48' y='3' width='4' height='34' rx='2'/><circle cx='60' cy='20' r='2.5'/><circle cx='68' cy='20' r='2.5'/>" +
+  "<circle cx='76' cy='20' r='2.5'/><circle cx='84' cy='20' r='2.5'/><circle cx='92' cy='20' r='2.5'/></svg>";
+const MARK_URI = `data:image/svg+xml;utf8,${encodeURIComponent(MARK_SVG)}`;
+
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -21,7 +30,11 @@ export default function OpengraphImage() {
       >
         {/* Top bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-2px", color: "#000" }}>Hushcut</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={MARK_URI} width={80} height={32} alt="" />
+            <span style={{ fontSize: 36, fontWeight: 700, letterSpacing: "-2px", color: "#000" }}>Hushcut</span>
+          </div>
           <span
             style={{
               display: "flex",
