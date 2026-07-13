@@ -241,11 +241,28 @@ function Nav() {
       className="flex items-center justify-between w-full gap-3"
       style={{ padding: "16px clamp(16px, 6vw, 120px)" }}
     >
-      <span
-        style={{ fontFamily: FONT.schibsted, fontWeight: 600, fontSize: 24, letterSpacing: "-1.44px", color: "#000" }}
+      <svg
+        width="70"
+        height="28"
+        viewBox="0 0 100 40"
+        fill="#000"
+        role="img"
+        aria-label="Hushcut"
+        style={{ display: "block" }}
       >
-        Hushcut
-      </span>
+        <rect x="6" y="14" width="4" height="12" rx="2" />
+        <rect x="13" y="9" width="4" height="22" rx="2" />
+        <rect x="20" y="4" width="4" height="32" rx="2" />
+        <rect x="27" y="1" width="4" height="38" rx="2" />
+        <rect x="34" y="8" width="4" height="24" rx="2" />
+        <rect x="41" y="13" width="4" height="14" rx="2" />
+        <rect x="48" y="3" width="4" height="34" rx="2" />
+        <circle cx="60" cy="20" r="2.5" />
+        <circle cx="68" cy="20" r="2.5" />
+        <circle cx="76" cy="20" r="2.5" />
+        <circle cx="84" cy="20" r="2.5" />
+        <circle cx="92" cy="20" r="2.5" />
+      </svg>
 
       <a
         href="https://buymeacoffee.com/hushcut2"
